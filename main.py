@@ -4,7 +4,6 @@ from pydantic import BaseModel
 from typing import List
 import opengradient as og
 import os
-import inspect
 
 app = FastAPI()
 
@@ -29,20 +28,16 @@ def debug():
     try:
         client = og.Client(private_key=private_key)
         methods = [m for m in dir(client) if not m.startswith("_")]
-        return {"methods": methods}
+        return {"client_methods": methods}
     except Exception as e:
-        og_methods = [m for m in dir(og) if not m.startswith("_")]
-        return {"og_module_methods": og_methods, "client_error": str(e)}
-
-@app.post("/api/chat")
-async def chat(req: ChatRequest):
-    raise HTTPException(status_code=500, detail="Check /debug endpoint first")
+        og_attrs = [m for m in dir(og) if not m.startswith("_")]
+        return {"og_module_attrs": og_attrs, "client_error": str(e)}
 
 @app.get("/")
 def root():
     return {"status": "ok"}
 ```
 
-Commit it, wait for Railway to redeploy, then open this URL in your browser:
+Commit, wait for Railway to go green, then open:
 ```
 https://og-chat-backend-production.up.railway.app/debug
