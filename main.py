@@ -14,26 +14,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+og.init(
+    private_key=os.environ.get("OG_PRIVATE_KEY", ""),
+    email=os.environ.get("OG_EMAIL", ""),
+    password=os.environ.get("OG_PASSWORD", ""),
+)
+
 class Message(BaseModel):
     role: str
     content: str
 
 class ChatRequest(BaseModel):
     messages: List[Message]
-    model: str = "openai/gpt-4o-mini"
+    model: str = "meta-llama/Meta-Llama-3-8B-Instruct"
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
-        private_key = os.environ.get("OG_PRIVATE_KEY")
-        if not private_key:
-            raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not configured")
-
-        client = og.Client(private_key=private_key)
-
         messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
-        result = client.llm_chat(
+        tx_hash, finish_reason, message = og.llm_chat(
             model_cid=req.model,
             messages=messages,
             max_tokens=512,
@@ -41,12 +41,10 @@ async def chat(req: ChatRequest):
         )
 
         return {
-            "content": result.chat_output,
-            "payment_hash": result.payment_hash,
+            "content": message,
+            "payment_hash": tx_hash,
             "model": req.model,
         }
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
