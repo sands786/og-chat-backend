@@ -22,29 +22,31 @@ class ChatRequest(BaseModel):
     messages: List[Message]
     model: str = "openai/gpt-4o-mini"
 
-@app.on_event("startup")
-async def startup():
-    og.init(
-        private_key=os.environ.get("OG_PRIVATE_KEY"),
-        email=os.environ.get("OG_EMAIL", ""),
-        password=os.environ.get("OG_PASSWORD", ""),
-    )
-
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
     try:
+        private_key = os.environ.get("OG_PRIVATE_KEY")
+        if not private_key:
+            raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not configured")
+
+        client = og.Client(private_key=private_key)
+
         messages = [{"role": m.role, "content": m.content} for m in req.messages]
-        chat_output, tx_hash, _ = og.llm_chat(
+
+        result = client.llm_chat(
             model_cid=req.model,
             messages=messages,
             max_tokens=512,
             temperature=0.7,
         )
+
         return {
-            "content": chat_output,
-            "payment_hash": tx_hash,
+            "content": result.chat_output,
+            "payment_hash": result.payment_hash,
             "model": req.model,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
