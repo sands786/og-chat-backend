@@ -14,19 +14,45 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-@app.get("/debug")
-def debug():
+class Message(BaseModel):
+    role: str
+    content: str
+
+class ChatRequest(BaseModel):
+    messages: List[Message]
+    model: str = "openai/gpt-4o"
+
+@app.post("/api/chat")
+async def chat(req: ChatRequest):
     try:
-        tee_llm_values = [e.name for e in og.TEE_LLM]
-        return {"TEE_LLM_values": tee_llm_values}
+        private_key = os.environ.get("OG_PRIVATE_KEY")
+        if not private_key:
+            raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
+
+        client = og.Client(private_key=private_key)
+        client.llm.ensure_opg_approval(opg_amount=5)
+
+        messages = [{"role": m.role, "content": m.content} for m in req.messages]
+
+        result = client.llm.chat(
+            model=og.TEE_LLM.GPT_4O,
+            messages=messages,
+            max_tokens=512,
+            temperature=0.7,
+        )
+
+        return {
+            "content": result.chat_output["content"],
+            "payment_hash": result.transaction_hash,
+            "model": req.model,
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        return {"error": str(e), "og_attrs": [x for x in dir(og) if not x.startswith("_")]}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 def root():
     return {"status": "ok"}
-```
 
-Commit → wait for Railway to go green → open this in your browser:
-```
-https://og-chat-backend-production.up.railway.app/debug
+
