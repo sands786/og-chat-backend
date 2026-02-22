@@ -30,7 +30,7 @@ async def chat(req: ChatRequest):
             raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
 
         client = og.Client(private_key=private_key)
-        client.llm.ensure_opg_approval(opg_amount=0.5)
+        client.llm.ensure_opg_approval(opg_amount=0.1)
 
         messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
