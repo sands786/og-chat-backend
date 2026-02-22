@@ -29,7 +29,7 @@ async def chat(req: ChatRequest):
         if not private_key:
             raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not configured")
 
-        client = og.new_client(private_key=private_key)
+        client = og.Client(private_key=private_key)
 
         messages = [{"role": m.role, "content": m.content} for m in req.messages]
 
@@ -52,4 +52,4 @@ async def chat(req: ChatRequest):
 
 @app.get("/")
 def root():
-    return {"status": "ok", "message": "OG Chat Backend running!"}
+    return {"status": "ok"}
