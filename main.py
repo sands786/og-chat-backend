@@ -35,7 +35,7 @@ async def chat(req: ChatRequest):
     try:
         client = og.Client(private_key=private_key)
         result = client.llm.chat(
-            model=og.TEE_LLM.GPT_4O,
+            model="openai/gpt-4o",
             messages=messages,
             max_tokens=512,
             temperature=0.7,
