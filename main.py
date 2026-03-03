@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import List
 import opengradient as og
 import os
+import uvicorn
 
 app = FastAPI()
 
@@ -50,3 +51,22 @@ async def chat(req: ChatRequest):
 @app.get("/")
 def root():
     return {"status": "ok"}
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8080))
+    uvicorn.run(app, host="0.0.0.0", port=port)
+```
+
+---
+
+Also update your `Procfile`:
+```
+web: uvicorn main:app --host 0.0.0.0 --port $PORT
+```
+
+And `requirements.txt`:
+```
+fastapi
+uvicorn
+pydantic
+opengradient==0.7.5
