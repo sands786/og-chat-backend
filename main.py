@@ -35,44 +35,45 @@ async def chat(req: ChatRequest):
     try:
         client = og.Client(private_key=private_key)
         result = client.llm.chat(
-            model="openai/gpt-4o",
+            model=og.TEE_LLM.GPT_4O,
             messages=messages,
             max_tokens=512,
             temperature=0.7,
         )
 
-        # Get content from response
-        content = ""
-        if hasattr(result, 'chat_output'):
-            if isinstance(result.chat_output, dict):
-                content = result.chat_output.get("content", str(result.chat_output))
-            else:
-                content = str(result.chat_output)
-        elif hasattr(result, 'content'):
-            content = result.content
-        else:
-            content = str(result)
+        # DEBUG: Print all fields to Railway logs
+        print("=" * 50)
+        print("RESULT TYPE:", type(result))
+        print("RESULT ATTRS:", [a for a in dir(result) if not a.startswith('_')])
+        print("RESULT DICT:", result.__dict__ if hasattr(result, '__dict__') else 'N/A')
+        print("=" * 50)
 
-        # Get tx hash — try multiple possible field names
-        tx_hash = ""
-        for field in ['transaction_hash', 'payment_hash', 'tx_hash', 'txHash']:
-            val = getattr(result, field, None)
-            if val:
-                tx_hash = str(val)
-                break
+        # Get content
+        content = result.chat_output["content"]
 
-        print(f"SUCCESS - tx_hash: {tx_hash}")
-        print(f"Content preview: {content[:100]}")
+        # Get payment hash
+        payment_hash = getattr(result, 'payment_hash', None)
+        if not payment_hash:
+            for field in ['transaction_hash', 'tx_hash', 'txHash', 'receipt_hash']:
+                val = getattr(result, field, None)
+                if val:
+                    payment_hash = str(val)
+                    print(f"Found hash in field '{field}': {payment_hash}")
+                    break
+
+        print(f"PAYMENT HASH: {payment_hash}")
 
         return {
             "content": content,
-            "payment_hash": tx_hash,
+            "payment_hash": str(payment_hash) if payment_hash else "",
             "model": "gpt-4o-tee",
         }
 
     except Exception as e:
         print(f"ERROR: {type(e).__name__}: {e}")
-        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 def root():
