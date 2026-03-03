@@ -55,18 +55,3 @@ def root():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
     uvicorn.run(app, host="0.0.0.0", port=port)
-```
-
----
-
-Also update your `Procfile`:
-```
-web: uvicorn main:app --host 0.0.0.0 --port $PORT
-```
-
-And `requirements.txt`:
-```
-fastapi
-uvicorn
-pydantic
-opengradient==0.7.5
