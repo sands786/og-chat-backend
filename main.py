@@ -30,18 +30,19 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
-    client = og.Client(private_key=private_key)
+    client = og.new_client(private_key=private_key, email=None, password=None)
 
     try:
-        result = client.llm.chat(
-            model=og.TEE_LLM.GPT_4O,
+        result = client.llm_chat(
+            model_cid="openai/gpt-4o",
             messages=messages,
             max_tokens=512,
             temperature=0.7,
+            inference_mode=og.LlmInferenceMode.TEE,
         )
         return {
             "content": result.chat_output["content"],
-            "payment_hash": str(result.transaction_hash),
+            "payment_hash": str(result.payment_hash),
             "model": "gpt-4o-tee",
         }
 
