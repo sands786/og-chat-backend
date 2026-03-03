@@ -10,7 +10,13 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://ogchat-frontend.vercel.app",
+        "http://localhost:3000",
+        "http://localhost:5500",
+        "*"
+    ],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -30,22 +36,20 @@ async def chat(req: ChatRequest):
         raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
 
     messages = [{"role": m.role, "content": m.content} for m in req.messages]
-    client = og.new_client(private_key=private_key, email=None, password=None)
+    client = og.Client(private_key=private_key)
 
     try:
-        result = client.llm_chat(
-            model_cid="openai/gpt-4o",
+        result = client.llm.chat(
+            model=og.TEE_LLM.GPT_4O,
             messages=messages,
             max_tokens=512,
             temperature=0.7,
-            inference_mode=og.LlmInferenceMode.TEE,
         )
         return {
             "content": result.chat_output["content"],
-            "payment_hash": str(result.payment_hash),
+            "payment_hash": str(result.transaction_hash),
             "model": "gpt-4o-tee",
         }
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
