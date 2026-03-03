@@ -42,33 +42,25 @@ async def chat(req: ChatRequest):
             temperature=0.7,
         )
 
-        content = result.chat_output["content"]
         tee_signature = getattr(result, 'tee_signature', None)
         tee_timestamp = getattr(result, 'tee_timestamp', None)
 
-        # Format timestamp
-        verified_at = ""
+        tee_time_formatted = ""
         if tee_timestamp:
             try:
-                verified_at = datetime.utcfromtimestamp(tee_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
+                tee_time_formatted = datetime.utcfromtimestamp(tee_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
             except:
-                verified_at = str(tee_timestamp)
-
-        print(f"TEE SIGNATURE: {tee_signature[:40] if tee_signature else 'None'}...")
-        print(f"TEE TIMESTAMP: {verified_at}")
+                tee_time_formatted = str(tee_timestamp)
 
         return {
-            "content": content,
+            "content": result.chat_output["content"],
             "tee_signature": tee_signature,
-            "tee_timestamp": verified_at,
-            "payment_hash": None,
+            "tee_timestamp": tee_time_formatted,
             "model": "gpt-4o-tee",
         }
 
     except Exception as e:
         print(f"ERROR: {type(e).__name__}: {e}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
