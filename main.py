@@ -5,6 +5,7 @@ from typing import List
 import opengradient as og
 import os
 import uvicorn
+from datetime import datetime
 
 app = FastAPI()
 
@@ -41,31 +42,26 @@ async def chat(req: ChatRequest):
             temperature=0.7,
         )
 
-        # DEBUG: Print all fields to Railway logs
-        print("=" * 50)
-        print("RESULT TYPE:", type(result))
-        print("RESULT ATTRS:", [a for a in dir(result) if not a.startswith('_')])
-        print("RESULT DICT:", result.__dict__ if hasattr(result, '__dict__') else 'N/A')
-        print("=" * 50)
-
-        # Get content
         content = result.chat_output["content"]
+        tee_signature = getattr(result, 'tee_signature', None)
+        tee_timestamp = getattr(result, 'tee_timestamp', None)
 
-        # Get payment hash
-        payment_hash = getattr(result, 'payment_hash', None)
-        if not payment_hash:
-            for field in ['transaction_hash', 'tx_hash', 'txHash', 'receipt_hash']:
-                val = getattr(result, field, None)
-                if val:
-                    payment_hash = str(val)
-                    print(f"Found hash in field '{field}': {payment_hash}")
-                    break
+        # Format timestamp
+        verified_at = ""
+        if tee_timestamp:
+            try:
+                verified_at = datetime.utcfromtimestamp(tee_timestamp).strftime('%Y-%m-%d %H:%M:%S UTC')
+            except:
+                verified_at = str(tee_timestamp)
 
-        print(f"PAYMENT HASH: {payment_hash}")
+        print(f"TEE SIGNATURE: {tee_signature[:40] if tee_signature else 'None'}...")
+        print(f"TEE TIMESTAMP: {verified_at}")
 
         return {
             "content": content,
-            "payment_hash": str(payment_hash) if payment_hash else "",
+            "tee_signature": tee_signature,
+            "tee_timestamp": verified_at,
+            "payment_hash": None,
             "model": "gpt-4o-tee",
         }
 
