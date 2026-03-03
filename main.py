@@ -40,14 +40,39 @@ async def chat(req: ChatRequest):
             max_tokens=512,
             temperature=0.7,
         )
+
+        # Get content from response
+        content = ""
+        if hasattr(result, 'chat_output'):
+            if isinstance(result.chat_output, dict):
+                content = result.chat_output.get("content", str(result.chat_output))
+            else:
+                content = str(result.chat_output)
+        elif hasattr(result, 'content'):
+            content = result.content
+        else:
+            content = str(result)
+
+        # Get tx hash — try multiple possible field names
+        tx_hash = ""
+        for field in ['transaction_hash', 'payment_hash', 'tx_hash', 'txHash']:
+            val = getattr(result, field, None)
+            if val:
+                tx_hash = str(val)
+                break
+
+        print(f"SUCCESS - tx_hash: {tx_hash}")
+        print(f"Content preview: {content[:100]}")
+
         return {
-            "content": result.chat_output["content"],
-            "payment_hash": str(result.transaction_hash),
+            "content": content,
+            "payment_hash": tx_hash,
             "model": "gpt-4o-tee",
         }
+
     except Exception as e:
-        print(f"ERROR: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
+        print(f"ERROR: {type(e).__name__}: {e}")
+        raise HTTPException(status_code=500, detail=f"{type(e).__name__}: {str(e)}")
 
 @app.get("/")
 def root():
