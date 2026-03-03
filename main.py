@@ -24,35 +24,29 @@ class ChatRequest(BaseModel):
 
 @app.post("/api/chat")
 async def chat(req: ChatRequest):
+    private_key = os.environ.get("OG_PRIVATE_KEY")
+    if not private_key:
+        raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
+
+    messages = [{"role": m.role, "content": m.content} for m in req.messages]
+    client = og.Client(private_key=private_key)
+
     try:
-        private_key = os.environ.get("OG_PRIVATE_KEY")
-        if not private_key:
-            raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
-
-        client = og.Client(private_key=private_key)
-        client.llm.ensure_opg_approval(opg_amount=0.1)
-
-        messages = [{"role": m.role, "content": m.content} for m in req.messages]
-
         result = client.llm.chat(
             model=og.TEE_LLM.GPT_4O,
             messages=messages,
             max_tokens=512,
             temperature=0.7,
         )
-
         return {
             "content": result.chat_output["content"],
-            "payment_hash": result.transaction_hash,
-            "model": req.model,
+            "payment_hash": str(result.transaction_hash),
+            "model": "gpt-4o-tee",
         }
-    except HTTPException:
-        raise
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/")
 def root():
     return {"status": "ok"}
-
-
