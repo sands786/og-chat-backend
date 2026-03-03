@@ -41,24 +41,18 @@ async def chat(req: ChatRequest):
             temperature=0.7,
         )
 
-        # DEBUG: Print all fields to Railway logs
-        print("=" * 50)
         print("RESULT TYPE:", type(result))
         print("RESULT ATTRS:", [a for a in dir(result) if not a.startswith('_')])
         print("RESULT DICT:", result.__dict__ if hasattr(result, '__dict__') else 'N/A')
-        print("=" * 50)
 
-        # Get content
         content = result.chat_output["content"]
 
-        # Get payment hash
         payment_hash = getattr(result, 'payment_hash', None)
         if not payment_hash:
             for field in ['transaction_hash', 'tx_hash', 'txHash', 'receipt_hash']:
                 val = getattr(result, field, None)
                 if val:
                     payment_hash = str(val)
-                    print(f"Found hash in field '{field}': {payment_hash}")
                     break
 
         print(f"PAYMENT HASH: {payment_hash}")
