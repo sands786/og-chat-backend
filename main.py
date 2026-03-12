@@ -26,7 +26,7 @@ class ImageData(BaseModel):
 class Message(BaseModel):
     role: str
     content: str
-    images: Optional[List[ImageData]] = None  # ← NEW: optional images field
+    images: Optional[List[ImageData]] = None
 
 class ChatRequest(BaseModel):
     messages: List[Message]
@@ -35,39 +35,23 @@ class ChatRequest(BaseModel):
 # ── Helper: build OpenAI-compatible messages ─────────────────────
 
 def build_messages(messages: List[Message]):
-    """
-    Converts our Message objects into the format OpenAI expects.
-    - Text-only messages → {"role": ..., "content": "string"}
-    - Messages with images → {"role": ..., "content": [text_block, image_block, ...]}
-    """
     result = []
     for m in messages:
         if m.images:
-            # Vision message — build content as array of blocks
             content_blocks = []
-
-            # Add the text part first (if any)
             if m.content and m.content.strip():
-                content_blocks.append({
-                    "type": "text",
-                    "text": m.content
-                })
-
-            # Add each image as a base64 data URL
+                content_blocks.append({"type": "text", "text": m.content})
             for img in m.images:
                 content_blocks.append({
                     "type": "image_url",
                     "image_url": {
                         "url": f"data:{img.type};base64,{img.data}",
-                        "detail": "auto"   # let OpenAI pick low/high res automatically
+                        "detail": "auto"
                     }
                 })
-
             result.append({"role": m.role, "content": content_blocks})
         else:
-            # Plain text message
             result.append({"role": m.role, "content": m.content})
-
     return result
 
 # ── Chat endpoint ────────────────────────────────────────────────
@@ -78,21 +62,33 @@ async def chat(req: ChatRequest):
     if not private_key:
         raise HTTPException(status_code=500, detail="OG_PRIVATE_KEY not set")
 
-    # Build messages in OpenAI vision-compatible format
     messages = build_messages(req.messages)
-
-    # Detect if this request contains images (for logging / model override)
     has_images = any(m.images for m in req.messages if m.images)
 
     try:
         client = og.Client(private_key=private_key)
 
-        result = client.llm.chat(
-            model="openai/gpt-4o",   # GPT-4o supports vision natively
-            messages=messages,
-            max_tokens=1024,          # bumped up — vision responses tend to be longer
-            temperature=0.7,
-        )
+        used_mode = "TEE"
+        result = None
+
+        # Try TEE first, fall back to VANILLA if TEE node is down
+        try:
+            result = client.llm.chat(
+                model="openai/gpt-4o",
+                messages=messages,
+                max_tokens=1024,
+                temperature=0.7,
+            )
+        except Exception as tee_error:
+            print(f"TEE failed ({type(tee_error).__name__}: {tee_error}), falling back to VANILLA...")
+            used_mode = "VANILLA (TEE unavailable)"
+            result = client.llm.chat(
+                model="openai/gpt-4o",
+                messages=messages,
+                max_tokens=1024,
+                temperature=0.7,
+                inference_mode=og.LlmInferenceMode.VANILLA,
+            )
 
         tee_signature  = getattr(result, 'tee_signature', None)
         tee_timestamp  = getattr(result, 'tee_timestamp', None)
@@ -109,7 +105,8 @@ async def chat(req: ChatRequest):
             "tee_signature": tee_signature,
             "tee_timestamp": tee_time_formatted,
             "model":         "gpt-4o-tee",
-            "has_vision":    has_images,   # optional flag for frontend
+            "has_vision":    has_images,
+            "used_mode":     used_mode,
         }
 
     except Exception as e:
